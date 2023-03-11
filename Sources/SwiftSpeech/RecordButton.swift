@@ -30,9 +30,10 @@ public extension SwiftSpeech {
         
         @Environment(\.swiftSpeechState) var state: SwiftSpeech.State
         @SpeechRecognitionAuthStatus var authStatus
-        
+        @Binding var isMicEnabled: Bool
         public init() { }
         
+
         var backgroundColor: Color {
             switch state {
             case .pending:
@@ -53,6 +54,13 @@ public extension SwiftSpeech {
             case .cancelling:
                 return 1.4
             }
+        }
+
+        var isButtonEnabled: Bool {
+            if authStatus && isMicEnabled {
+                return true
+            }
+            return false
         }
         
         public var body: some View {
