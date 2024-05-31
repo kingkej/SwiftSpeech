@@ -7,6 +7,8 @@
 
 import SwiftUI
 import Combine
+import AVFoundation
+import ExtraLottie
 
 public extension SwiftSpeech {
     /**
@@ -31,8 +33,9 @@ public extension SwiftSpeech {
         @Environment(\.swiftSpeechState) var state: SwiftSpeech.State
         @SpeechRecognitionAuthStatus var authStatus
         @Binding var isMicEnabled: Bool
-        public init() { }
-        
+        init() {
+            _authStatus = SpeechRecognitionAuthStatus() 
+        }
 
         var backgroundColor: Color {
             switch state {
@@ -57,7 +60,7 @@ public extension SwiftSpeech {
         }
 
         var isButtonEnabled: Bool {
-            if authStatus && isMicEnabled {
+            if $authStatus && isMicEnabled {
                 return true
             }
             return false
@@ -73,12 +76,28 @@ public extension SwiftSpeech {
                     .zIndex(0)
                 
                 Image(systemName: state != .cancelling ? "waveform" : "xmark")
-                    .font(.system(size: 30, weight: .medium, design: .default))
+                    .font(.system(size: 25, weight: .medium, design: .default))
                     .foregroundColor(.white)
                     .opacity(state == .recording ? 0.8 : 1.0)
                     .padding(20)
                     .transition(.opacity)
                     .layoutPriority(2)
+                    .background(
+                        ZStack {
+                            ForEach(0..<1) { i in
+                                Circle()
+                                    .stroke(lineWidth: 3)
+                                    .scaleEffect(state == .recording ? CGFloat(i+2) : 1)
+                                    .opacity(state == .recording ? 0 : 0.5)
+                                    .animation(state == .recording ?
+                                                Animation.easeIn(duration: 6)
+                                                .delay(0.5 * Double(i))
+                                                .repeatForever(autoreverses: true) : .default, value: state == .recording )
+                                    .foregroundColor(.red)
+                            }
+                        }
+                    )
+
                     .zIndex(1)
                 
             }
@@ -90,8 +109,3 @@ public extension SwiftSpeech {
     }
 }
 
-struct RecordButton_Previews: PreviewProvider {
-    static var previews: some View {
-        SwiftSpeech.Demos.Basic()
-    }
-}

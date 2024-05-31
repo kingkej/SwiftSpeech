@@ -11,19 +11,54 @@ import Speech
 
 extension SwiftSpeech {
     
-    public static func requestSpeechRecognitionAuthorization() {
-        AuthorizationCenter.shared.requestSpeechRecognitionAuthorization()
+    public enum InputAuthStatus {
+        case ok
+        case speechDenied
+        case micDenied
+        case speechAndMicDenied
+    }
+    
+    public static func requestSpeechRecognitionAuthorization(completion: @escaping (InputAuthStatus) -> Void) {
+        AuthorizationCenter.shared.requestSpeechRecognitionAuthorization(completion: completion)
     }
     
     class AuthorizationCenter: ObservableObject {
-        @Published var speechRecognitionAuthorizationStatus: SFSpeechRecognizerAuthorizationStatus = SFSpeechRecognizer.authorizationStatus()
+        var isMicGranted: Bool
+        @Published var speechRecognitionAuthorizationStatus: SFSpeechRecognizerAuthorizationStatus
         
-        func requestSpeechRecognitionAuthorization() {
+        init() {
+            let audioSession = AVAudioSession.sharedInstance()
+            let permissionStatus = audioSession.recordPermission
+
+            isMicGranted = permissionStatus == .granted
+            
+            speechRecognitionAuthorizationStatus = isMicGranted ? SFSpeechRecognizer.authorizationStatus() : .denied
+        }
+        
+        func requestSpeechRecognitionAuthorization(completion: @escaping (InputAuthStatus) -> Void) {
             // Asynchronously make the authorization request.
             SFSpeechRecognizer.requestAuthorization { authStatus in
-                if self.speechRecognitionAuthorizationStatus != authStatus {
-                    DispatchQueue.main.async {
-                        self.speechRecognitionAuthorizationStatus = authStatus
+                AVCaptureDevice.requestAccess(for: .audio) { micResult in
+                    var authStatusLocal = authStatus
+                    if(!micResult) {
+                        authStatusLocal = .denied
+                    }
+                    if self.speechRecognitionAuthorizationStatus != authStatusLocal {
+                        DispatchQueue.main.async {
+                            self.speechRecognitionAuthorizationStatus = authStatusLocal
+                        }
+                    }
+                    if (micResult && authStatus == .authorized) {
+                        completion(InputAuthStatus.ok)
+                    }
+                    if (!micResult && authStatus == .authorized) {
+                        completion(InputAuthStatus.micDenied)
+                    }
+                    if (micResult && authStatus != .authorized) {
+                        completion(InputAuthStatus.speechDenied)
+                    }
+                    if (!micResult && authStatus != .authorized) {
+                        completion(InputAuthStatus.speechAndMicDenied)
                     }
                 }
             }
